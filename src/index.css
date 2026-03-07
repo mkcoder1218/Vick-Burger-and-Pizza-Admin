@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --color-burger-red: #E31837;
+  --color-burger-orange: #FF6321;
+  --color-burger-yellow: #FFB800;
+  --color-burger-black: #1A1A1A;
+  --color-burger-cream: #F9F7F2;
+}
+
+@layer base {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  body {
+    @apply bg-burger-cream text-burger-black antialiased;
+  }
+}
+
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: radial-gradient(circle, #1A1A1A 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}

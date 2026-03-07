@@ -1,0 +1,127 @@
+import React, { useEffect, useMemo } from 'react';
+import Badge from '../ui/Badge';
+import Skeleton from '../ui/Skeleton';
+import { fetcher, getToken, useGetAll, buildUrl } from '../../swr';
+import { mutate } from 'swr';
+import { listKey } from '../../swr/hooks';
+import { User } from '../../types';
+import { io } from 'socket.io-client';
+
+const ordersByBusiness = (businessId: string) => `api/admin/orders/business/${businessId}`;
+const activeKitchenOrders = 'api/kitchen/orders/active';
+
+type ApiOrder = {
+  id: string;
+  status: string;
+  totalAmount: string;
+  table?: { tableNumber: string };
+  orderItems?: { quantity: number; menuItem?: { itemName: string } }[];
+};
+
+type KitchenItem = { itemId: string; itemName: string; quantity: number; specialInstruction?: string | null; itemImageUrl?: string | null };
+type KitchenOrder = { orderId: string; tableId: string; tableNumber: string; status: string; totalAmount: string; timePlaced: string; items: KitchenItem[]; };
+
+type OrdersResponse = { success: boolean; data: ApiOrder[] | KitchenOrder[] };
+
+const toStatus = (status: string) => status.toLowerCase() as 'pending' | 'preparing' | 'ready' | 'delivered';
+
+export default function AdminKitchen({ currentUser }: { currentUser: User }) {
+  const businessId = currentUser.business?.id || currentUser.businessId;
+  const isKitchenStaff = currentUser.role === 'chef' || currentUser.role === 'waiter';
+  const isChef = currentUser.role === 'chef';
+  const resource = isKitchenStaff ? activeKitchenOrders : (businessId ? ordersByBusiness(businessId) : null);
+  const { data, isLoading } = useGetAll<OrdersResponse>(resource);
+  const orders = useMemo(() => {
+    const rows = data?.data ?? [];
+    if (rows.length > 0 && 'orderId' in rows[0]) {
+      return (rows as KitchenOrder[]).map((o) => ({
+        id: o.orderId,
+        status: o.status,
+        totalAmount: o.totalAmount,
+        table: { tableNumber: o.tableNumber },
+        orderItems: o.items?.map((i) => ({ quantity: i.quantity, menuItem: { itemName: i.itemName, imageUrl: i.itemImageUrl || undefined } })) ?? [],
+      }));
+    }
+    return rows as ApiOrder[];
+  }, [data]);
+
+  useEffect(() => {
+    if (!resource) return;
+    const token = getToken();
+    const socket = io(buildUrl(''), {
+      auth: token ? { token: `Bearer ${token}` } : undefined,
+    });
+    socket.emit('join-kitchen');
+    const refresh = () => mutate(listKey(resource));
+    socket.on('OrderPlaced', refresh);
+    socket.on('OrderStatusUpdated', refresh);
+    return () => {
+      socket.off('OrderPlaced', refresh);
+      socket.off('OrderStatusUpdated', refresh);
+      socket.disconnect();
+    };
+  }, [resource]);
+
+  if (!businessId && !isKitchenStaff) {
+    return <div className="text-sm text-zinc-500">No business assigned to this account.</div>;
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h3 className="font-serif text-3xl text-zinc-900">Kitchen Display</h3>
+        <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">Live queue</div>
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {isLoading && (
+          <>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white p-6 rounded-[2.5rem] border border-zinc-100 shadow-sm">
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-4 w-1/3 mt-3" />
+                <Skeleton className="h-4 w-2/3 mt-3" />
+              </div>
+            ))}
+          </>
+        )}
+        {!isLoading && orders.map((o) => (
+          <div key={o.id} className="bg-white p-6 rounded-[2.5rem] border border-zinc-100 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <p className="text-2xl font-black">Table {o.table?.tableNumber ?? '--'}</p>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Kitchen Order</p>
+              </div>
+              <Badge status={toStatus(o.status)}>{toStatus(o.status)}</Badge>
+            </div>
+            <ul className="space-y-3 text-sm text-zinc-700">
+              {o.orderItems?.map((i, idx) => (
+                <li key={idx} className="flex items-center gap-3">
+                  {i.menuItem?.imageUrl && (
+                    <img src={buildUrl(i.menuItem.imageUrl)} className="w-10 h-10 rounded-xl object-cover" alt={i.menuItem.itemName} />
+                  )}
+                  <span className="font-black">{i.quantity}x {i.menuItem?.itemName ?? 'Item'}</span>
+                </li>
+              ))}
+            </ul>
+            {isChef && (
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => fetcher(`/api/kitchen/orders/${o.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'Preparing' }) }).then(() => mutate(listKey(resource!)))}
+                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                >
+                  Preparing
+                </button>
+                <button
+                  onClick={() => fetcher(`/api/kitchen/orders/${o.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'Ready' }) }).then(() => mutate(listKey(resource!)))}
+                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-burger-orange text-white hover:bg-burger-red"
+                >
+                  Ready
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
