@@ -1,7 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
 import Skeleton from '../ui/Skeleton';
-import { createOne, deleteOne, useGetAll } from '../../swr';
+import { buildUrl, createOne, deleteOne, useGetAll, getToken } from '../../swr';
+import { io } from 'socket.io-client';
+import { mutate } from 'swr';
+import { listKey } from '../../swr/hooks';
 
 const STAFF_RESOURCE = 'api/admin/staff';
 const ROLES_RESOURCE = 'api/roles';
@@ -39,6 +42,22 @@ export default function AdminTableAssignments() {
   const [waiterId, setWaiterId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const token = getToken();
+    const socket = io(buildUrl(''), {
+      auth: token ? { token: `Bearer ${token}` } : undefined,
+    });
+    socket.emit('join-admin');
+    const refresh = () => mutate(listKey(ASSIGN_RESOURCE));
+    socket.on('TableStatusUpdated', refresh);
+    socket.on('PaymentCompleted', refresh);
+    return () => {
+      socket.off('TableStatusUpdated', refresh);
+      socket.off('PaymentCompleted', refresh);
+      socket.disconnect();
+    };
+  }, []);
 
   const assign = async (e: React.FormEvent) => {
     e.preventDefault();

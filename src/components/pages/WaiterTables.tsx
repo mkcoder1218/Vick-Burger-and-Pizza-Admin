@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Skeleton from '../ui/Skeleton';
-import { fetcher, useGetAll } from '../../swr';
+import { fetcher, useGetAll, buildUrl, getToken } from '../../swr';
+import { io } from 'socket.io-client';
 import { mutate } from 'swr';
 import { listKey } from '../../swr/hooks';
 import { User } from '../../types';
@@ -35,6 +36,71 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
   const { data, isLoading, error } = useGetAll<ListResponse<AssignedRow>>(ASSIGNED_TABLES_RESOURCE);
   const rows = useMemo(() => data?.data ?? [], [data]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('staffSoundEnabled') === 'true';
+  });
+  const soundEnabledRef = useRef(soundEnabled);
+  const soundRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    soundRef.current = new Audio('/mixkit-software-interface-remove-2576.wav');
+  }, []);
+
+  const playNotification = () => {
+    if (!soundEnabledRef.current) return;
+    try {
+      if (!soundRef.current) {
+        soundRef.current = new Audio('/mixkit-software-interface-remove-2576.wav');
+      }
+      soundRef.current.currentTime = 0;
+      void soundRef.current.play();
+    } catch {
+      // ignore if audio not available
+    }
+  };
+
+  const enableSound = () => {
+    setSoundEnabled(true);
+    window.localStorage.setItem('staffSoundEnabled', 'true');
+    playNotification();
+  };
+
+  const disableSound = () => {
+    setSoundEnabled(false);
+    window.localStorage.setItem('staffSoundEnabled', 'false');
+  };
+
+  useEffect(() => {
+    const token = getToken();
+    const socket = io(buildUrl(''), {
+      auth: token ? { token: `Bearer ${token}` } : undefined,
+    });
+    socket.emit('join-staff');
+    const refresh = () => mutate(listKey(ASSIGNED_TABLES_RESOURCE));
+    socket.on('OrderPlaced', () => {
+      playNotification();
+      refresh();
+    });
+    socket.on('TableStatusUpdated', refresh);
+    socket.on('PaymentCompleted', refresh);
+    socket.on('OrderStatusUpdated', (payload: { status?: string }) => {
+      if (payload?.status && payload.status.toLowerCase() === 'ready') {
+        playNotification();
+      }
+      refresh();
+    });
+    return () => {
+      socket.off('OrderPlaced');
+      socket.off('TableStatusUpdated', refresh);
+      socket.off('PaymentCompleted', refresh);
+      socket.off('OrderStatusUpdated');
+      socket.disconnect();
+    };
+  }, []);
 
   const updateStatus = async (orderId: string, status: 'Pending' | 'Preparing' | 'Ready' | 'Delivered') => {
     setSavingId(orderId);
@@ -78,7 +144,16 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-bold">Assigned Tables</h3>
-        <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">Your floor</div>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={soundEnabled ? disableSound : enableSound}
+            className={`px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${soundEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}
+          >
+            {soundEnabled ? 'Sound On' : 'Sound Off'}
+          </button>
+          <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">Your floor</div>
+        </div>
       </div>
 
       {isLoading && (
@@ -128,7 +203,7 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
                       ))}
                     </ul>
                     <div className="flex gap-2">
-                      {order.status.toLowerCase() !== 'delivered' ? (
+                      {order.status.toLowerCase() === 'ready' ? (
                         <Button
                           variant="gold"
                           onClick={() => updateStatus(order.id, 'Delivered')}
@@ -138,7 +213,7 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
                           Deliver
                         </Button>
                       ) : (
-                        <span className="text-xs text-zinc-400">Delivered</span>
+                        <span className="text-xs text-zinc-400">Waiting for kitchen</span>
                       )}
                     </div>
                     {status !== 'waiting' && (

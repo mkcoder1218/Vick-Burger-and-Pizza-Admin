@@ -1,9 +1,12 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Edit2, Plus, Trash2, QrCode } from 'lucide-react';
 import Button from '../ui/Button';
 import Drawer from '../ui/Drawer';
 import Skeleton from '../ui/Skeleton';
-import { createOne, deleteOne, updateOne, useGetAll } from '../../swr';
+import { createOne, deleteOne, updateOne, useGetAll, getToken, buildUrl } from '../../swr';
+import { io } from 'socket.io-client';
+import { mutate } from 'swr';
+import { listKey } from '../../swr/hooks';
 import { User } from '../../types';
 import QRCode from 'qrcode';
 import { jsPDF } from 'jspdf';
@@ -51,6 +54,21 @@ export default function AdminTables({ currentUser }: { currentUser: User }) {
   const [editAvailable, setEditAvailable] = useState(true);
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const token = getToken();
+    const socket = io(buildUrl(''), {
+      auth: token ? { token: Bearer  } : undefined,
+    });
+    socket.emit('join-admin');
+    const refresh = () => mutate(listKey(TABLES_RESOURCE));
+    socket.on('TableStatusUpdated', refresh);
+    return () => {
+      socket.off('TableStatusUpdated', refresh);
+      socket.disconnect();
+    };
+  }, [businessId]);
 
   const resetCreate = () => {
     setTableNumber('');

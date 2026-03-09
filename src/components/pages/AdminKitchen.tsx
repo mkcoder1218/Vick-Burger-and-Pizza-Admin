@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Badge from '../ui/Badge';
 import Skeleton from '../ui/Skeleton';
 import { fetcher, getToken, useGetAll, buildUrl } from '../../swr';
@@ -29,6 +29,19 @@ export default function AdminKitchen({ currentUser }: { currentUser: User }) {
   const businessId = currentUser.business?.id || currentUser.businessId;
   const isKitchenStaff = currentUser.role === 'chef' || currentUser.role === 'waiter';
   const isChef = currentUser.role === 'chef';
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('staffSoundEnabled') === 'true';
+  });
+  const soundEnabledRef = useRef(soundEnabled);
+  const soundRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    soundRef.current = new Audio('/mixkit-software-interface-remove-2576.wav');
+  }, []);
   const resource = isKitchenStaff ? activeKitchenOrders : (businessId ? ordersByBusiness(businessId) : null);
   const { data, isLoading } = useGetAll<OrdersResponse>(resource);
   const orders = useMemo(() => {
@@ -45,6 +58,30 @@ export default function AdminKitchen({ currentUser }: { currentUser: User }) {
     return rows as ApiOrder[];
   }, [data]);
 
+  const playNotification = () => {
+    if (!soundEnabledRef.current) return;
+    try {
+      if (!soundRef.current) {
+        soundRef.current = new Audio('/mixkit-software-interface-remove-2576.wav');
+      }
+      soundRef.current.currentTime = 0;
+      void soundRef.current.play();
+    } catch {
+      // ignore if audio not available
+    }
+  };
+
+  const enableSound = () => {
+    setSoundEnabled(true);
+    window.localStorage.setItem('staffSoundEnabled', 'true');
+    playNotification();
+  };
+
+  const disableSound = () => {
+    setSoundEnabled(false);
+    window.localStorage.setItem('staffSoundEnabled', 'false');
+  };
+
   useEffect(() => {
     if (!resource) return;
     const token = getToken();
@@ -53,10 +90,13 @@ export default function AdminKitchen({ currentUser }: { currentUser: User }) {
     });
     socket.emit('join-kitchen');
     const refresh = () => mutate(listKey(resource));
-    socket.on('OrderPlaced', refresh);
+    socket.on('OrderPlaced', () => {
+      playNotification();
+      refresh();
+    });
     socket.on('OrderStatusUpdated', refresh);
     return () => {
-      socket.off('OrderPlaced', refresh);
+      socket.off('OrderPlaced');
       socket.off('OrderStatusUpdated', refresh);
       socket.disconnect();
     };
@@ -70,7 +110,16 @@ export default function AdminKitchen({ currentUser }: { currentUser: User }) {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h3 className="font-serif text-3xl text-zinc-900">Kitchen Display</h3>
-        <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">Live queue</div>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={soundEnabled ? disableSound : enableSound}
+            className={`px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${soundEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}
+          >
+            {soundEnabled ? 'Sound On' : 'Sound Off'}
+          </button>
+          <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">Live queue</div>
+        </div>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {isLoading && (
