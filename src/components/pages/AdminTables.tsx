@@ -59,7 +59,7 @@ export default function AdminTables({ currentUser }: { currentUser: User }) {
     if (!businessId) return;
     const token = getToken();
     const socket = io(buildUrl(''), {
-      auth: token ? { token: Bearer  } : undefined,
+      auth: token ? { token: token  } : undefined,
     });
     socket.emit('join-admin');
     const refresh = () => mutate(listKey(TABLES_RESOURCE));
