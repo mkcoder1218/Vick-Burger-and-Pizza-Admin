@@ -36,6 +36,7 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
   const { data, isLoading, error } = useGetAll<ListResponse<AssignedRow>>(ASSIGNED_TABLES_RESOURCE);
   const rows = useMemo(() => data?.data ?? [], [data]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('staffSoundEnabled') === 'true';
@@ -130,11 +131,14 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
 
   const completeVisit = async (tableId: string) => {
     setSavingId(tableId);
+    setActionError(null);
     try {
       await fetcher(`/api/waiter/tables/${tableId}/complete`, {
         method: 'POST',
       });
       await mutate(listKey(ASSIGNED_TABLES_RESOURCE));
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to complete table visit');
     } finally {
       setSavingId(null);
     }
@@ -164,6 +168,7 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
         </div>
       )}
       {error && <div className="text-sm text-red-500">Failed to load assigned tables</div>}
+      {actionError && <div className="text-sm text-red-500">{actionError}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {!isLoading &&
@@ -216,7 +221,7 @@ export default function WaiterTables({ currentUser }: { currentUser: User }) {
                         <span className="text-xs text-zinc-400">Waiting for kitchen</span>
                       )}
                     </div>
-                    {status !== 'waiting' && (
+                    {order.status.toLowerCase() === 'delivered' && status !== 'waiting' && (
                       <div className="flex gap-2 pt-2">
                         <Button
                           variant="secondary"

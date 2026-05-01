@@ -54,6 +54,10 @@ export default function AdminTables({ currentUser }: { currentUser: User }) {
   const [editAvailable, setEditAvailable] = useState(true);
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const [userBaseUrl, setUserBaseUrl] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem('userAppBaseUrl') || 'http://localhost:4000';
+  });
 
   useEffect(() => {
     if (!businessId) return;
@@ -154,7 +158,7 @@ export default function AdminTables({ currentUser }: { currentUser: User }) {
     }
   };
 
-  const tableQrUrl = (tableId: string) => `${window.location.origin}/?tableId=${tableId}`;
+  const tableQrUrl = (tableId: string) => `${userBaseUrl.replace(/\/$/, '')}/?tableId=${tableId}`;
 
   const exportQrPdf = async (table: ApiTable) => {
     try {
@@ -188,6 +192,26 @@ export default function AdminTables({ currentUser }: { currentUser: User }) {
         <div className="flex gap-2">
           <Button onClick={() => setBulkOpen(true)} variant="secondary">Bulk Create</Button>
           <Button onClick={() => setOpen(true)} className="flex items-center gap-2"><Plus size={18} /> Create Table</Button>
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl border border-zinc-200 p-4">
+        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">User App Base URL (for QR links)</label>
+        <div className="mt-2 flex gap-2">
+          <input
+            value={userBaseUrl}
+            onChange={(e) => setUserBaseUrl(e.target.value)}
+            placeholder="http://localhost:4000"
+            className="w-full px-4 py-3 rounded-2xl border-2 border-zinc-200 focus:outline-none focus:border-burger-orange"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => {
+              window.localStorage.setItem('userAppBaseUrl', userBaseUrl);
+              alert('User app base URL saved for QR generation.');
+            }}
+          >
+            Save
+          </Button>
         </div>
       </div>
 

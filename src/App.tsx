@@ -21,6 +21,8 @@ import AdminStaff from './components/pages/AdminStaff';
 import AdminTables from './components/pages/AdminTables';
 import AdminTableAssignments from './components/pages/AdminTableAssignments';
 import WaiterTables from './components/pages/WaiterTables';
+import WaiterAnalytics from './components/pages/WaiterAnalytics';
+import KitchenAnalytics from './components/pages/KitchenAnalytics';
 import Profile from './components/pages/Profile';
 import { clearToken, getMe, normalizeUser, swrConfig } from './swr';
 
@@ -78,6 +80,7 @@ export default function App() {
       return [
         { id: 'waiter_kitchen', label: 'Kitchen Display', icon: ChefHat },
         { id: 'waiter_tables', label: 'My Tables', icon: LayoutGrid },
+        { id: 'waiter_analytics', label: 'My Analytics', icon: BarChart3 },
         { id: 'profile', label: 'Profile', icon: UsersIcon },
       ];
     }
@@ -85,6 +88,7 @@ export default function App() {
     if (currentUser.role === 'chef') {
       return [
         { id: 'admin_kitchen', label: 'Kitchen Display', icon: ChefHat },
+        { id: 'chef_analytics', label: 'Kitchen Analytics', icon: BarChart3 },
         { id: 'profile', label: 'Profile', icon: UsersIcon },
       ];
     }
@@ -159,6 +163,8 @@ export default function App() {
 
                 {staffView === 'waiter_kitchen' && <AdminKitchen currentUser={currentUser} />}
                 {staffView === 'waiter_tables' && <WaiterTables currentUser={currentUser} />}
+                {staffView === 'waiter_analytics' && <WaiterAnalytics />}
+                {staffView === 'chef_analytics' && <KitchenAnalytics />}
 
                 {staffView === 'admin_dashboard' && (
                   <AdminDashboard currentUser={currentUser} />
