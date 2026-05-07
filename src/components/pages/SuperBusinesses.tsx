@@ -194,18 +194,18 @@ export default function SuperBusinesses() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h3 className="text-xl font-bold">Manage Businesses</h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search businesses"
-            className="px-4 py-2 rounded-2xl border-2 border-burger-black/10 focus:outline-none focus:border-burger-orange"
+            className="w-full sm:w-72 px-4 py-3 sm:py-2 rounded-2xl border-2 border-burger-black/10 focus:outline-none focus:border-burger-orange"
           />
           <Button
             onClick={() => setOpen(true)}
-            className="flex items-center gap-2"
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <Plus size={18} /> Register Business
           </Button>
@@ -234,14 +234,14 @@ export default function SuperBusinesses() {
         <div className="text-sm text-red-500">Failed to load businesses</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {paged.map((b) => (
           <div
             key={b.id}
             className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm hover:shadow-md transition-shadow"
           >
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center overflow-hidden">
                   {b.logoFile?.url ? (
                     <img
@@ -253,17 +253,23 @@ export default function SuperBusinesses() {
                     <Store size={24} className="text-zinc-400" />
                   )}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-lg">{b.businessName}</h4>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-bold text-lg truncate">
+                      {b.businessName}
+                    </h4>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${b.isActive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}
                     >
                       {b.isActive ? "Active" : "Disabled"}
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-500">{b.address}</p>
-                  <p className="text-xs text-zinc-400">{b.phone}</p>
+                  <p className="text-sm text-zinc-500 break-words">
+                    {b.address}
+                  </p>
+                  <p className="text-xs text-zinc-400 break-words">
+                    {b.phone}
+                  </p>
                   {b.logoFileId && (
                     <p className="text-[10px] text-zinc-400 mt-1">
                       Logo File ID: {b.logoFileId}
@@ -271,25 +277,33 @@ export default function SuperBusinesses() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => toggleActive(b)}
-                  className={`w-10 h-5 rounded-full relative transition-colors ${b.isActive ? "bg-emerald-500" : "bg-zinc-200"}`}
-                >
-                  <div
-                    className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${b.isActive ? "right-1" : "left-1"}`}
-                  />
-                </button>
+              <div className="flex items-center justify-between sm:justify-end gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 sm:hidden">
+                    Status
+                  </span>
+                  <button
+                    onClick={() => toggleActive(b)}
+                    className={`w-10 h-5 rounded-full relative transition-colors ${b.isActive ? "bg-emerald-500" : "bg-zinc-200"}`}
+                    aria-label="Toggle active status"
+                  >
+                    <div
+                      className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${b.isActive ? "right-1" : "left-1"}`}
+                    />
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => openEdit(b)}
-                    className="text-zinc-400 hover:text-black"
+                    className="h-10 w-10 inline-flex items-center justify-center rounded-2xl text-zinc-500 hover:bg-zinc-50 hover:text-black border border-zinc-200/70"
+                    aria-label="Edit business"
                   >
                     <Edit2 size={18} />
                   </button>
                   <button
                     onClick={() => removeBusiness(b.id)}
-                    className="text-zinc-400 hover:text-red-500"
+                    className="h-10 w-10 inline-flex items-center justify-center rounded-2xl text-zinc-500 hover:bg-red-50 hover:text-red-600 border border-zinc-200/70"
+                    aria-label="Delete business"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -300,11 +314,12 @@ export default function SuperBusinesses() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <Button
           variant="secondary"
           onClick={() => setPage((p) => Math.max(0, p - 1))}
           disabled={page === 0}
+          className="w-full sm:w-auto justify-center"
         >
           Prev
         </Button>
@@ -313,6 +328,7 @@ export default function SuperBusinesses() {
           variant="secondary"
           onClick={() => setPage((p) => p + 1)}
           disabled={(page + 1) * limit >= businesses.length}
+          className="w-full sm:w-auto justify-center"
         >
           Next
         </Button>
